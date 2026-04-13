@@ -13,7 +13,7 @@ A robust media library management system for Laravel applications using Inertia.
 ## Requirements
 
 - PHP 8.2+
-- Laravel 10.x | 11.x | 12.x
+- Laravel 12.x | 13.x
 - Inertia.js (React)
 
 ## Installation
