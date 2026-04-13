@@ -4,11 +4,26 @@
     "description": "Media library with upload, variants, and selector UI for Laravel + Inertia + React.",
     "type": "library",
     "license": "MIT",
+    "keywords": [
+        "laravel",
+        "media",
+        "library",
+        "inertia",
+        "react",
+        "media-manager",
+        "upload"
+    ],
+    "authors": [
+        {
+            "name": "Codprez",
+            "homepage": "https://github.com/obalaweb"
+        }
+    ],
     "require": {
         "php": "^8.2",
-        "illuminate/database": "^12.0",
-        "illuminate/http": "^12.0",
-        "illuminate/support": "^12.0"
+        "illuminate/database": "^10.0|^11.0|^12.0",
+        "illuminate/http": "^10.0|^11.0|^12.0",
+        "illuminate/support": "^10.0|^11.0|^12.0"
     },
     "autoload": {
         "psr-4": {
