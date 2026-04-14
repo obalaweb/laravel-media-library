@@ -15,8 +15,9 @@ class MediaLibraryServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../database/migrations/' => database_path('migrations'),
         ], 'media-library-migrations');
-    }
 
+        $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
+    }
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/media-library.php', 'media-library');
