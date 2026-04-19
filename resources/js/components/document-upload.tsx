@@ -1,7 +1,7 @@
 import axios from "axios";
 import { Upload, X, FileText, Pencil, FileDown } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "./ui/button";
 import MediaSelector from "./media-selector";
 
 interface DocumentUploadProps {
@@ -27,7 +27,7 @@ const DocumentUpload = ({ value, onChange, label, mediaType = "document" }: Docu
       } else {
         const mediaId = typeof value === 'number' ? value : parseInt(value as string);
         if (!isNaN(mediaId) && mediaId > 0) {
-          axios.get(`/admin/media/${mediaId}`, {
+          axios.get(`/builder/media/${mediaId}`, {
             headers: {
               'X-Requested-With': 'XMLHttpRequest',
               'Accept': 'application/json',
