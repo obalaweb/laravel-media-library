@@ -9,7 +9,7 @@ $middleware = config('media-library.routing.middleware', ['web', 'auth']);
 
 Route::middleware($middleware)
     ->prefix($prefix)
-    ->name('admin.') // Prefixing with admin to remain compatible with existing internal route names
+    ->name('media-library.') // Changed from admin. to avoid duplicate route name conflicts with main app during caching
     ->group(function () {
         Route::get('media', [MediaController::class, 'index'])->name('media.index');
         Route::post('media', [MediaController::class, 'store'])->name('media.store');
