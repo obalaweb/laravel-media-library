@@ -2,16 +2,15 @@
 
 namespace Codprez\MediaLibrary\GoogleDrive;
 
-use Illuminate\Http\Client\Response;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Response;
 use RuntimeException;
 
 class GoogleDrivePublicClient
 {
     public function __construct(
         private readonly ?HttpFactory $http = null
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<int, array{id: string, name: string, mime_type: string, size: int|null}>
@@ -143,13 +142,14 @@ class GoogleDrivePublicClient
         return rawurldecode(trim($matches[1]));
     }
 
-    /**
-     * @return mixed
-     */
     private function configValue(string $key, mixed $default = null): mixed
     {
-        if (function_exists('config')) {
-            return config($key, $default);
+        try {
+            if (function_exists('config')) {
+                return config($key, $default);
+            }
+        } catch (\Throwable $e) {
+            // Fallback to env when Laravel is not fully bootstrapped (e.g. in standalone unit tests)
         }
 
         return match ($key) {
@@ -159,10 +159,6 @@ class GoogleDrivePublicClient
         };
     }
 
-    /**
-     * @param  mixed  $default
-     * @return mixed
-     */
     private function envMimeTypesOrDefault(mixed $default): mixed
     {
         $raw = getenv('GOOGLE_DRIVE_ALLOWED_MIME_TYPES');
