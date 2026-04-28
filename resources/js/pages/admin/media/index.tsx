@@ -1,6 +1,6 @@
 import { router, Head } from "@inertiajs/react";
-import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Film } from "lucide-react";
-import { useState, useRef } from "react";
+import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Film, FolderUp } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { ActionModal } from "../../../components/action-modal";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
@@ -44,6 +44,21 @@ interface MediaIndexProps {
   };
 }
 
+interface DrivePreviewFile {
+  id: string;
+  name: string;
+  mime_type: string;
+  size: number | null;
+  already_imported: boolean;
+  is_allowed?: boolean;
+}
+
+interface DrivePreviewResponse {
+  type: string;
+  id: string;
+  files: DrivePreviewFile[];
+}
+
 const breadcrumbs = [
     {
         title: 'Media Library',
@@ -58,7 +73,15 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [filterType, setFilterType] = useState(filters?.type || "all");
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [driveUrl, setDriveUrl] = useState("");
+  const [drivePreview, setDrivePreview] = useState<DrivePreviewResponse | null>(null);
+  const [selectedDriveIds, setSelectedDriveIds] = useState<string[]>([]);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const filteredMedia = media?.data || [];
 
@@ -139,6 +162,134 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
     });
   };
 
+  const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+
+  const previewGoogleDrive = async () => {
+    if (!driveUrl.trim()) {
+      toast({ title: "Link required", description: "Paste a Google Drive file or folder link.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsPreviewLoading(true);
+      setDrivePreview(null);
+      setBatchStatus(null);
+
+      const response = await fetch('/builder/media/imports/google-drive/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken(),
+        },
+        body: JSON.stringify({ url: driveUrl.trim() }),
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? 'Unable to preview this Drive link.');
+      }
+
+      setDrivePreview(payload.data);
+      const selectableIds = (payload.data?.files ?? [])
+        .filter((file: DrivePreviewFile) => !file.already_imported && file.is_allowed !== false)
+        .map((file: DrivePreviewFile) => file.id);
+      setSelectedDriveIds(selectableIds);
+    } catch (error: any) {
+      toast({
+        title: "Preview failed",
+        description: error?.message ?? "Could not fetch files from Google Drive.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const toggleDriveFile = (id: string) => {
+    setSelectedDriveIds((current) => (
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    ));
+  };
+
+  const toggleSelectAll = () => {
+    if (!drivePreview) return;
+
+    const allIds = drivePreview.files
+      .filter((file) => !file.already_imported && file.is_allowed !== false)
+      .map((file) => file.id);
+
+    if (selectedDriveIds.length === allIds.length) {
+      setSelectedDriveIds([]);
+      return;
+    }
+
+    setSelectedDriveIds(allIds);
+  };
+
+  const startGoogleDriveImport = async () => {
+    if (!driveUrl.trim()) return;
+
+    try {
+      setIsImporting(true);
+
+      const response = await fetch('/builder/media/imports/google-drive/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': csrfToken(),
+        },
+        body: JSON.stringify({
+          url: driveUrl.trim(),
+          selected_file_ids: selectedDriveIds,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.message ?? 'Unable to start import.');
+      }
+
+      setBatchStatus(payload.batch);
+      toast({ title: "Import started", description: "Google Drive files are now importing in the background." });
+
+      const batchId = payload.batch?.id;
+      if (!batchId) return;
+
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+      }
+
+      pollRef.current = setInterval(async () => {
+        const statusResponse = await fetch(`/builder/media/imports/${batchId}`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        const statusPayload = await statusResponse.json();
+        if (!statusResponse.ok) return;
+
+        setBatchStatus(statusPayload.batch);
+
+        if (["completed", "completed_with_errors"].includes(statusPayload.batch?.status)) {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+          router.reload({ only: ["media"] });
+        }
+      }, 2500);
+    } catch (error: any) {
+      toast({
+        title: "Import failed to start",
+        description: error?.message ?? "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case "image": return <ImageIcon className="h-8 w-8 text-primary" />;
@@ -147,6 +298,14 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
       default: return <FileText className="h-8 w-8 text-muted-foreground" />;
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+      }
+    };
+  }, []);
 
   return (
     <AppLayout breadcrumbs={breadcrumbs}>
@@ -158,7 +317,11 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             <h1 className="text-3xl font-bold tracking-tight text-foreground">Media Library</h1>
             <p className="text-muted-foreground mt-1">Manage your uploaded files</p>
           </div>
-          <div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsDriveModalOpen(true)}>
+              <FolderUp className="h-4 w-4 mr-2" />
+              Import from Google Drive
+            </Button>
             <input
               ref={fileInputRef}
               type="file"
@@ -380,6 +543,80 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDriveModalOpen} onOpenChange={(open) => {
+          setIsDriveModalOpen(open);
+          if (!open && pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }}>
+          <DialogContent className="max-w-3xl bg-popover text-popover-foreground">
+            <DialogHeader>
+              <DialogTitle>Import from Google Drive</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste a public Google Drive file or folder link"
+                  value={driveUrl}
+                  onChange={(event) => setDriveUrl(event.target.value)}
+                />
+                <Button onClick={previewGoogleDrive} disabled={isPreviewLoading}>
+                  {isPreviewLoading ? 'Loading...' : 'Preview'}
+                </Button>
+              </div>
+
+              {drivePreview && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{drivePreview.files.length} file(s) detected</span>
+                    <Button variant="ghost" size="sm" onClick={toggleSelectAll}>
+                      {selectedDriveIds.length === drivePreview.files.filter((file) => !file.already_imported && file.is_allowed !== false).length
+                        ? 'Unselect all'
+                        : 'Select all'}
+                    </Button>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+                    {drivePreview.files.map((file) => (
+                      <label key={file.id} className="flex items-center gap-3 p-3 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedDriveIds.includes(file.id)}
+                          disabled={file.already_imported}
+                          onChange={() => toggleDriveFile(file.id)}
+                        />
+                        <span className="flex-1 truncate">{file.name}</span>
+                        {file.is_allowed === false && (
+                          <span className="text-xs text-destructive">Unsupported type</span>
+                        )}
+                        {file.already_imported && (
+                          <span className="text-xs text-muted-foreground">Already imported</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={startGoogleDriveImport} disabled={isImporting || selectedDriveIds.length === 0}>
+                      {isImporting ? 'Starting...' : `Import Selected (${selectedDriveIds.length})`}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {batchStatus && (
+                <div className="rounded-md border p-3 text-sm space-y-1">
+                  <p>Status: <strong>{batchStatus.status}</strong></p>
+                  <p>Imported: {batchStatus.imported_count} / {batchStatus.total_count}</p>
+                  <p>Skipped: {batchStatus.skipped_count} | Failed: {batchStatus.failed_count}</p>
+                </div>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>

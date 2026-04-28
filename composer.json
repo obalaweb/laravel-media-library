@@ -25,10 +25,18 @@
         "illuminate/http": "^12.0|^13.0",
         "illuminate/support": "^12.0|^13.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
     "autoload": {
         "psr-4": {
             "Codprez\\MediaLibrary\\": "src/",
             "Codprez\\MediaLibrary\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Codprez\\MediaLibrary\\Tests\\": "tests/"
         }
     },
     "extra": {

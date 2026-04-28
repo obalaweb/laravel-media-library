@@ -41,6 +41,10 @@ class Media extends Model
         'file_name',
         'mime_type',
         'type',
+        'source',
+        'source_id',
+        'import_batch_id',
+        'imported_at',
         'path',
         'url',
         'size',
@@ -59,6 +63,7 @@ class Media extends Model
     {
         return [
             'size' => 'integer',
+            'imported_at' => 'datetime',
         ];
     }
 
@@ -70,6 +75,11 @@ class Media extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(config('media-library.user_model', \App\Models\User::class), 'uploaded_by');
+    }
+
+    public function importBatch(): BelongsTo
+    {
+        return $this->belongsTo(MediaImportBatch::class, 'import_batch_id');
     }
 
     public function getFormattedSizeAttribute(): string

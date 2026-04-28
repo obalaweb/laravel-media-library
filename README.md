@@ -9,6 +9,7 @@ A robust media library management system for Laravel applications using Inertia.
 - **Inertia/React Integration**: Ready-to-use components for selecting and managing media in your admin panel.
 - **Filtering**: Filter media by type (image, video, document) and search by name.
 - **Multi-delete**: Select and remove multiple files at once.
+- **Google Drive Import (Public Links)**: Paste a public file/folder link, preview files, select some or all, and import in the background.
 
 ## Requirements
 
@@ -44,7 +45,25 @@ The configuration file is located at `config/media-library.php`. Here you can de
 ```php
 return [
     'user_model' => \App\Models\User::class,
+    'disk' => 'public',
+    'google_drive' => [
+        'api_key' => env('GOOGLE_DRIVE_API_KEY'),
+    ],
 ];
+```
+
+### Google Drive Import Setup
+
+To import public Google Drive folders, set an API key:
+
+```env
+GOOGLE_DRIVE_API_KEY=your_google_api_key
+```
+
+Then run migrations so import tracking columns/tables exist:
+
+```bash
+php artisan migrate
 ```
 
 ## Usage
