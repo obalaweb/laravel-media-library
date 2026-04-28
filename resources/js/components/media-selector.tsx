@@ -27,14 +27,17 @@ interface MediaSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (id: number, url: string, original_name?: string) => void;
-  currentValue?: number | string | null;
+  onSelectMultiple?: (items: Array<{ id: number; url: string; original_name?: string }>) => void;
+  currentValue?: number | string | Array<number | string> | null;
   mediaType?: "image" | "document" | "video" | "all";
+  multiple?: boolean;
 }
 
-const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType = "image" }: MediaSelectorProps) => {
+const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, currentValue, mediaType = "image", multiple = false }: MediaSelectorProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -77,6 +80,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
     } else {
       setSearchQuery("");
       setSelectedItem(null);
+      setSelectedItems([]);
     }
   }, [open, fetchMedia]);
 
@@ -88,7 +92,31 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
     item.original_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const currentValues = Array.isArray(currentValue) ? currentValue : [currentValue];
+
   const handleSelect = () => {
+    if (multiple) {
+      if (selectedItems.length === 0) {
+        return;
+      }
+
+      const selectedMediaItems = items
+        .filter((item) => selectedItems.includes(item.id))
+        .map((item) => ({ id: item.id, url: item.url, original_name: item.original_name }));
+
+      if (onSelectMultiple) {
+        onSelectMultiple(selectedMediaItems);
+      } else if (selectedMediaItems.length > 0) {
+        onSelect(selectedMediaItems[0].id, selectedMediaItems[0].url, selectedMediaItems[0].original_name);
+      }
+
+      onOpenChange(false);
+      setSelectedItems([]);
+      setSearchQuery("");
+
+      return;
+    }
+
     if (selectedItem) {
       const item = items.find((itm) => itm.id === selectedItem);
       if (item) {
@@ -101,6 +129,13 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
   };
 
   const handleItemClick = (id: number) => {
+    if (multiple) {
+      setSelectedItems((current) => (
+        current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]
+      ));
+      return;
+    }
+
     setSelectedItem(selectedItem === id ? null : id);
   };
 
@@ -109,30 +144,32 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from<File>(e.target.files ?? []);
+    if (files.length === 0) return;
 
-    let isValid = true;
-    if (mediaType === "image") {
-      isValid = file.type.startsWith('image/');
-    } else if (mediaType === "document") {
-      isValid = !file.type.startsWith('image/') && !file.type.startsWith('video/');
-    } else if (mediaType === "video") {
-      isValid = file.type.startsWith('video/');
-    }
+    for (const file of files) {
+      let isValid = true;
+      if (mediaType === "image") {
+        isValid = file.type.startsWith('image/');
+      } else if (mediaType === "document") {
+        isValid = !file.type.startsWith('image/') && !file.type.startsWith('video/');
+      } else if (mediaType === "video") {
+        isValid = file.type.startsWith('video/');
+      }
 
-    if (!isValid) {
-      toast({
-        title: "Invalid file type",
-        description: `Please select a valid ${mediaType} file.`,
-        variant: "destructive"
-      });
-      return;
+      if (!isValid) {
+        toast({
+          title: "Invalid file type",
+          description: `Please select valid ${mediaType} files.`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => formData.append('files[]', file));
 
     axios.post('/builder/media', formData, {
       headers: {
@@ -142,13 +179,20 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
       },
     })
     .then((response) => {
-      if (response.data?.media) {
+      if (response.data?.media_items || response.data?.media) {
         toast({
-          title: "File uploaded",
-          description: "The file has been uploaded successfully."
+          title: files.length > 1 ? "Files uploaded" : "File uploaded",
+          description: files.length > 1
+            ? `${files.length} files have been uploaded successfully.`
+            : "The file has been uploaded successfully."
         });
         fetchMedia();
-        if (response.data.media.id) {
+        if (multiple) {
+          const ids = (response.data?.media_items?.data ?? [])
+            .map((item: MediaItem) => item.id)
+            .filter(Boolean);
+          setSelectedItems(ids);
+        } else if (response.data?.media?.id) {
           setSelectedItem(response.data.media.id);
         }
       }
@@ -195,6 +239,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
                 type="file"
                 className="hidden"
                 onChange={handleFileChange}
+                multiple
                 accept={mediaType === "image" ? "image/*" : mediaType === "video" ? "video/*" : mediaType === "document" ? ".pdf,.doc,.docx,.xls,.xlsx,.txt" : "*"}
               />
               <Button
@@ -255,13 +300,14 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredItems.map((item) => {
                   const isSelected = selectedItem === item.id;
-                  const isCurrent = currentValue === item.id || currentValue === item.url;
+                  const isMultiSelected = selectedItems.includes(item.id);
+                  const isCurrent = currentValues.includes(item.id) || currentValues.includes(item.url);
 
                   return (
                     <Card
                       key={item.id}
                       className={`group cursor-pointer hover:shadow-lg transition-all relative ${
-                        isSelected || isCurrent ? "ring-2 ring-primary" : ""
+                        isSelected || isCurrent || isMultiSelected ? "ring-2 ring-primary" : ""
                       }`}
                       onClick={() => handleItemClick(item.id)}
                     >
@@ -284,7 +330,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
                               <span className="text-xs uppercase font-medium truncate max-w-[80%] px-2 text-center">{item.url.split('.').pop() || 'Document'}</span>
                             </div>
                           )}
-                          {(isSelected || isCurrent) && (
+                          {(isSelected || isCurrent || isMultiSelected) && (
                             <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
                               <div className="bg-primary text-primary-foreground rounded-full p-2">
                                 <Check className="h-5 w-5" />
@@ -310,13 +356,14 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
               <div className="space-y-2">
                 {filteredItems.map((item) => {
                   const isSelected = selectedItem === item.id;
-                  const isCurrent = currentValue === item.id || currentValue === item.url;
+                  const isMultiSelected = selectedItems.includes(item.id);
+                  const isCurrent = currentValues.includes(item.id) || currentValues.includes(item.url);
 
                   return (
                     <Card
                       key={item.id}
                       className={`cursor-pointer hover:bg-muted/50 transition-colors ${
-                        isSelected || isCurrent ? "ring-2 ring-primary" : ""
+                        isSelected || isCurrent || isMultiSelected ? "ring-2 ring-primary" : ""
                       }`}
                       onClick={() => handleItemClick(item.id)}
                     >
@@ -338,7 +385,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
                                 <FileText className="h-8 w-8" />
                               </div>
                             )}
-                            {(isSelected || isCurrent) && (
+                            {(isSelected || isCurrent || isMultiSelected) && (
                               <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
                                 <Check className="h-5 w-5 text-primary" />
                               </div>
@@ -375,8 +422,8 @@ const MediaSelector = ({ open, onOpenChange, onSelect, currentValue, mediaType =
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSelect} disabled={!selectedItem}>
-                Select {mediaType === "all" ? "File" : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}
+              <Button onClick={handleSelect} disabled={multiple ? selectedItems.length === 0 : !selectedItem}>
+                {multiple ? `Select ${selectedItems.length} ${mediaType === "all" ? "Files" : `${mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}s`}` : `Select ${mediaType === "all" ? "File" : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}`}
               </Button>
             </div>
           </div>

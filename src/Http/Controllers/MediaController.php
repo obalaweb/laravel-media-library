@@ -38,7 +38,13 @@ class MediaController extends Controller
     {
         $request->validate([
             'file' => [
-                'required',
+                'sometimes',
+                'file',
+                'max:51200',
+                'mimetypes:image/jpeg,image/png,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/ogg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv',
+            ],
+            'files' => ['sometimes', 'array', 'min:1'],
+            'files.*' => [
                 'file',
                 'max:51200',
                 'mimetypes:image/jpeg,image/png,image/gif,image/webp,image/svg+xml,video/mp4,video/webm,video/ogg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv',
@@ -46,32 +52,46 @@ class MediaController extends Controller
             'name' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $file = $request->file('file');
-        $name = $request->name ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $files = $request->hasFile('files')
+            ? $request->file('files')
+            : ($request->hasFile('file') ? [$request->file('file')] : []);
 
-        $path = $file->store('media', 'public');
+        if ($files === []) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No files were provided for upload.',
+            ], 422);
+        }
 
-        $media = Media::create([
-            'name' => $name,
-            'original_name' => $file->getClientOriginalName(),
-            'file_name' => basename($path),
-            'mime_type' => $file->getMimeType(),
-            'type' => $this->getFileType($file->getMimeType()),
-            'path' => $path,
-            'url' => Storage::url($path),
-            'size' => $file->getSize(),
-            'uploaded_by' => auth()->id(),
-        ]);
+        $mediaItems = [];
+        foreach ($files as $file) {
+            $name = $request->name ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            $path = $file->store('media', 'public');
+
+            $mediaItems[] = Media::create([
+                'name' => $name,
+                'original_name' => $file->getClientOriginalName(),
+                'file_name' => basename($path),
+                'mime_type' => $file->getMimeType(),
+                'type' => $this->getFileType($file->getMimeType()),
+                'path' => $path,
+                'url' => Storage::url($path),
+                'size' => $file->getSize(),
+                'uploaded_by' => auth()->id(),
+            ]);
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'media' => new MediaResource($media),
+                'media' => new MediaResource($mediaItems[0]),
+                'media_items' => MediaResource::collection(collect($mediaItems)),
+                'count' => count($mediaItems),
             ]);
         }
 
         return redirect()->route('admin.media.index')
-            ->with('success', 'Media uploaded successfully.');
+            ->with('success', count($mediaItems) > 1 ? 'Media files uploaded successfully.' : 'Media uploaded successfully.');
     }
 
     public function show(Media $medium): MediaResource

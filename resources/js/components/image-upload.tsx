@@ -5,16 +5,26 @@ import { Button } from "./ui/button";
 import MediaSelector from "./media-selector";
 
 interface ImageUploadProps {
-  value?: number | string | null;
+  value?: number | string | Array<number | string> | null;
   onChange: (value: number | null, url?: string | null) => void;
+  onChangeMultiple?: (items: Array<{ id: number; url: string }>) => void;
   label?: string;
+  multiple?: boolean;
 }
 
-const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
+const ImageUpload = ({ value, onChange, onChangeMultiple, label, multiple = false }: ImageUploadProps) => {
   const [isMediaSelectorOpen, setIsMediaSelectorOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
 
   useEffect(() => {
+    if (Array.isArray(value)) {
+      const directUrls = value.filter((item): item is string => typeof item === 'string' && (item.startsWith('http') || item.startsWith('/')));
+      setImageUrls(directUrls);
+      setImageUrl(directUrls[0] ?? "");
+      return;
+    }
+
     if (value) {
       if (typeof value === 'string' && (value.startsWith('http') || value.startsWith('/'))) {
         setImageUrl(value);
@@ -41,6 +51,7 @@ const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
       }
     } else {
       setImageUrl("");
+      setImageUrls([]);
     }
   }, [value]);
 
@@ -56,18 +67,27 @@ const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
     }
   };
 
+  const handleSelectMultiple = (items: Array<{ id: number; url: string }>) => {
+    setImageUrls(items.map((item) => item.url));
+    setImageUrl(items[0]?.url ?? "");
+    onChangeMultiple?.(items);
+  };
+
   return (
     <div className="space-y-2">
       {label && <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{label}</label>}
       <div className="space-y-4">
-        {imageUrl || value ? (
+        {(multiple ? imageUrls.length > 0 : (imageUrl || value)) ? (
           <div className="relative group">
-            <div className="aspect-video w-full rounded-lg overflow-hidden border border-border bg-muted">
-              <img
-                src={imageUrl || (typeof value === 'string' ? value : "")}
-                alt="Selected"
-                className="w-full h-full object-cover"
-              />
+            <div className={`${multiple ? "grid grid-cols-2 md:grid-cols-3 gap-2" : "aspect-video"} w-full rounded-lg overflow-hidden border border-border bg-muted p-2`}>
+              {(multiple ? imageUrls : [imageUrl || (typeof value === 'string' ? value : "")]).filter(Boolean).map((url, idx) => (
+                <img
+                  key={`${url}-${idx}`}
+                  src={url}
+                  alt="Selected"
+                  className={`${multiple ? "aspect-square w-full object-cover rounded" : "w-full h-full object-cover"}`}
+                />
+              ))}
             </div>
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
@@ -87,7 +107,7 @@ const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
           >
             <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
             <p className="text-sm font-medium text-muted-foreground mb-1">
-              Click to select image
+              {multiple ? "Click to select images" : "Click to select image"}
             </p>
             <p className="text-xs text-muted-foreground">
               Choose from media library
@@ -103,7 +123,7 @@ const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
             onClick={() => setIsMediaSelectorOpen(true)}
           >
             <Upload className="h-4 w-4 mr-2" />
-            {value ? "Change Image" : "Select Image"}
+            {multiple ? "Select Images" : (value ? "Change Image" : "Select Image")}
           </Button>
           {value && (
             <Button
@@ -121,8 +141,10 @@ const ImageUpload = ({ value, onChange, label }: ImageUploadProps) => {
           open={isMediaSelectorOpen}
           onOpenChange={setIsMediaSelectorOpen}
           onSelect={handleSelect}
+          onSelectMultiple={handleSelectMultiple}
           currentValue={value}
           mediaType="image"
+          multiple={multiple}
         />
       </div>
     </div>

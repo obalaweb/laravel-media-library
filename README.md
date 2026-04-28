@@ -5,6 +5,7 @@ A robust media library management system for Laravel applications using Inertia.
 ## Features
 
 - **Media Management**: Upload, rename, and delete media files.
+- **Bulk Uploads**: Upload multiple files in a single request.
 - **Variant Generation**: Automatic generation of thumbnails and webp variants (expandable).
 - **Inertia/React Integration**: Ready-to-use components for selecting and managing media in your admin panel.
 - **Filtering**: Filter media by type (image, video, document) and search by name.

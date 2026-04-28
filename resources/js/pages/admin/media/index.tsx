@@ -90,17 +90,22 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from<File>(e.target.files ?? []);
+    if (files.length === 0) return;
 
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => formData.append('files[]', file));
 
     router.post('/builder/media', formData, {
       preserveScroll: true,
       forceFormData: true,
       onSuccess: () => {
-        toast({ title: "File uploaded", description: "The file has been uploaded successfully." });
+        toast({
+          title: files.length > 1 ? "Files uploaded" : "File uploaded",
+          description: files.length > 1
+            ? `${files.length} files have been uploaded successfully.`
+            : "The file has been uploaded successfully.",
+        });
       },
       onError: (errors: any) => {
         toast({
@@ -327,6 +332,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
               type="file"
               className="hidden"
               onChange={handleFileChange}
+              multiple
               accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
             />
             <Button onClick={handleUpload}>
