@@ -25,7 +25,7 @@ class GoogleDrivePublicClient
         $response = $this->http()->get('https://www.googleapis.com/drive/v3/files', [
             'q' => sprintf("'%s' in parents and trashed=false", $folderId),
             'key' => $apiKey,
-            'fields' => 'files(id,name,mimeType,size)',
+            'fields' => 'files(id,name,mimeType,size,thumbnailLink)',
             'pageSize' => 1000,
             'supportsAllDrives' => 'true',
             'includeItemsFromAllDrives' => 'true',
@@ -45,6 +45,7 @@ class GoogleDrivePublicClient
                 'name' => (string) ($file['name'] ?? ''),
                 'mime_type' => (string) ($file['mimeType'] ?? 'application/octet-stream'),
                 'size' => isset($file['size']) ? (int) $file['size'] : null,
+                'thumbnail_link' => (string) ($file['thumbnailLink'] ?? ''),
             ])
             ->filter(fn (array $file) => $file['id'] !== '')
             ->values()

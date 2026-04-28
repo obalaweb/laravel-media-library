@@ -51,6 +51,7 @@ interface DrivePreviewFile {
   size: number | null;
   already_imported: boolean;
   is_allowed?: boolean;
+  thumbnail_link?: string;
 }
 
 interface DrivePreviewResponse {
@@ -520,7 +521,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             {selectedMedia && (
               <div className="space-y-4">
                 {selectedMedia.type === "image" ? (
-                  <img src={selectedMedia.url} alt={selectedMedia.name} className="w-full rounded-lg" loading="lazy" />
+                  <img src={selectedMedia.url} alt={selectedMedia.name} className="w-full max-h-[60vh] object-contain rounded-lg" loading="lazy" />
                 ) : (
                   <div className="h-48 bg-muted rounded-lg flex items-center justify-center">
                     {getIcon(selectedMedia.type)}
@@ -589,14 +590,22 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
 
                   <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
                     {drivePreview.files.map((file) => (
-                      <label key={file.id} className="flex items-center gap-3 p-3 text-sm">
+                      <label key={file.id} className="flex items-center gap-3 p-3 text-sm cursor-pointer hover:bg-muted/50">
                         <input
                           type="checkbox"
                           checked={selectedDriveIds.includes(file.id)}
                           disabled={file.already_imported}
                           onChange={() => toggleDriveFile(file.id)}
+                          className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                         />
-                        <span className="flex-1 truncate">{file.name}</span>
+                        {file.thumbnail_link ? (
+                          <img src={file.thumbnail_link} alt={file.name} className="h-10 w-10 object-cover rounded bg-muted flex-shrink-0" referrerPolicy="no-referrer" />
+                        ) : (
+                          <div className="h-10 w-10 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                            {file.mime_type.startsWith('image/') ? <ImageIcon className="h-5 w-5 text-muted-foreground" /> : <FileText className="h-5 w-5 text-muted-foreground" />}
+                          </div>
+                        )}
+                        <span className="flex-1 truncate font-medium">{file.name}</span>
                         {file.is_allowed === false && (
                           <span className="text-xs text-destructive">Unsupported type</span>
                         )}
