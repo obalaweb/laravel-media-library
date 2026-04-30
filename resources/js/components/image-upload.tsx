@@ -12,6 +12,28 @@ interface ImageUploadProps {
   multiple?: boolean;
 }
 
+function resolveMediaUrl(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const response = payload as Record<string, unknown>;
+  const nestedMedia =
+    (response.media as Record<string, unknown> | undefined) ??
+    (response.data as Record<string, unknown> | undefined) ??
+    response;
+
+  const candidateUrl =
+    nestedMedia?.url ??
+    nestedMedia?.medium_url ??
+    nestedMedia?.thumbnail_url ??
+    null;
+
+  return typeof candidateUrl === "string" && candidateUrl.length > 0
+    ? candidateUrl
+    : null;
+}
+
 const ImageUpload = ({ value, onChange, onChangeMultiple, label, multiple = false }: ImageUploadProps) => {
   const [isMediaSelectorOpen, setIsMediaSelectorOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -38,7 +60,7 @@ const ImageUpload = ({ value, onChange, onChangeMultiple, label, multiple = fals
             },
           })
           .then((response) => {
-            const url = response.data?.media?.url || response.data?.url;
+            const url = resolveMediaUrl(response.data);
             if (url) {
               setImageUrl(url);
             }
