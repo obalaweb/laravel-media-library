@@ -30,6 +30,10 @@ interface MediaItem {
   formatted_size: string;
   size: number;
   created_at?: string;
+  thumbnail_url?: string | null;
+  medium_url?: string | null;
+  large_url?: string | null;
+  webp_url?: string | null;
 }
 
 interface MediaIndexProps {
@@ -67,12 +71,57 @@ const breadcrumbs = [
     },
 ];
 
+function MediaPreviewImage({ item, className }: { item: MediaItem; className: string }) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const lowQualitySrc = item.thumbnail_url || item.url;
+  const optimizedSrc = item.medium_url || item.webp_url || item.url;
+
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      <div className={`absolute inset-0 bg-muted animate-pulse transition-opacity duration-300 ${isLoaded ? "opacity-0" : "opacity-100"}`} />
+      <img
+        src={lowQualitySrc}
+        alt={`${item.name} preview`}
+        className={`absolute inset-0 w-full h-full object-cover scale-110 blur-xl transition-opacity duration-300 ${isLoaded ? "opacity-0" : "opacity-100"}`}
+        loading="lazy"
+      />
+      <img
+        src={optimizedSrc}
+        alt={item.name}
+        className={`relative w-full h-full object-cover transition-opacity duration-300 ${isLoaded ? "opacity-100" : "opacity-0"}`}
+        onLoad={() => setIsLoaded(true)}
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+function getVisiblePages(currentPage: number, lastPage: number): number[] {
+  const pages = new Set<number>([1, lastPage, currentPage - 1, currentPage, currentPage + 1]);
+
+  if (currentPage <= 3) {
+    pages.add(2);
+    pages.add(3);
+  }
+
+  if (currentPage >= lastPage - 2) {
+    pages.add(lastPage - 1);
+    pages.add(lastPage - 2);
+  }
+
+  return [...pages]
+    .filter((page) => page >= 1 && page <= lastPage)
+    .sort((a, b) => a - b);
+}
+
 export default function MediaIndex({ media, filters }: MediaIndexProps) {
   const { toast } = useToast();
   const { isOpen, openModal, closeModal, modalProps } = useActionModal();
   const [searchQuery, setSearchQuery] = useState(filters?.search || "");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedMediaIds, setSelectedMediaIds] = useState<number[]>([]);
   const [filterType, setFilterType] = useState(filters?.type || "all");
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState("");
@@ -85,6 +134,11 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const filteredMedia = media?.data || [];
+  const currentPage = media?.meta?.current_page ?? 1;
+  const lastPage = media?.meta?.last_page ?? 1;
+  const totalMedia = media?.meta?.total ?? filteredMedia.length;
+  const pageNumbers = getVisiblePages(currentPage, lastPage);
+  const allVisibleSelected = filteredMedia.length > 0 && filteredMedia.every((item) => selectedMediaIds.includes(item.id));
 
   const handleUpload = () => {
     fileInputRef.current?.click();
@@ -134,6 +188,63 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
     });
   };
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((current) => {
+      if (current) {
+        setSelectedMediaIds([]);
+      }
+
+      return !current;
+    });
+  };
+
+  const toggleMediaSelection = (id: number) => {
+    setSelectedMediaIds((current) => (
+      current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    ));
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedMediaIds.length === 0) return;
+
+    openModal({
+      title: "Delete Selected Files",
+      description: `Are you sure you want to delete ${selectedMediaIds.length} selected file(s)? This action cannot be undone.`,
+      confirmText: "Delete Selected",
+      onConfirm: () => {
+        router.delete('/builder/media', {
+          data: { ids: selectedMediaIds },
+          preserveScroll: true,
+          onSuccess: () => {
+            toast({
+              title: "Files deleted",
+              description: `${selectedMediaIds.length} file(s) have been removed.`,
+            });
+            setSelectedMediaIds([]);
+            setIsSelectionMode(false);
+          },
+        });
+      },
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    const visibleIds = filteredMedia.map((item) => item.id);
+    if (visibleIds.length === 0) return;
+
+    setSelectedMediaIds((current) => {
+      const allSelected = visibleIds.every((id) => current.includes(id));
+
+      if (allSelected) {
+        return current.filter((id) => !visibleIds.includes(id));
+      }
+
+      return [...new Set([...current, ...visibleIds])];
+    });
+  };
+
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     toast({ title: "URL copied", description: "Link copied to clipboard." });
@@ -162,6 +273,19 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
     router.get('/builder/media', {
       search: searchQuery || undefined,
       type: filterType !== "all" ? filterType : undefined,
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+    });
+  };
+
+  const goToPage = (page: number) => {
+    if (page < 1 || page > lastPage || page === currentPage) return;
+
+    router.get('/builder/media', {
+      search: searchQuery || undefined,
+      type: filterType !== "all" ? filterType : undefined,
+      page,
     }, {
       preserveState: true,
       preserveScroll: true,
@@ -324,6 +448,27 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             <p className="text-muted-foreground mt-1">Manage your uploaded files</p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant={isSelectionMode ? "default" : "outline"}
+              onClick={toggleSelectionMode}
+            >
+              {isSelectionMode ? "Cancel Selection" : "Select"}
+            </Button>
+            {isSelectionMode && (
+              <Button variant="outline" onClick={toggleSelectAllVisible}>
+                {allVisibleSelected ? "Unselect This Page" : "Select This Page"}
+              </Button>
+            )}
+            {isSelectionMode && (
+              <Button
+                variant="destructive"
+                onClick={handleBulkDelete}
+                disabled={selectedMediaIds.length === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected ({selectedMediaIds.length})
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setIsDriveModalOpen(true)}>
               <FolderUp className="h-4 w-4 mr-2" />
               Import from Google Drive
@@ -418,21 +563,113 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
               <Card
                 key={item.id}
                 className="group cursor-pointer hover:shadow-lg transition-all"
-                onClick={() => setSelectedMedia(item)}
+                onClick={() => {
+                  if (isSelectionMode) {
+                    toggleMediaSelection(item.id);
+                    return;
+                  }
+
+                  setSelectedMedia(item);
+                }}
               >
                 <CardContent className="p-0">
                   <div className="aspect-square relative bg-muted rounded-t-lg overflow-hidden">
+                    {isSelectionMode && (
+                      <div className="absolute top-2 left-2 z-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedMediaIds.includes(item.id)}
+                          onChange={() => toggleMediaSelection(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                        />
+                      </div>
+                    )}
                     {item.type === "image" ? (
-                      <img src={item.url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+                      <MediaPreviewImage item={item} className="w-full h-full" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         {getIcon(item.type)}
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!isSelectionMode && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="secondary" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyUrl(item.url); }}>
+                              <Copy className="h-4 w-4 mr-2" /> Copy URL
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownload(item.url, item.original_name || item.name); }}>
+                              <Download className="h-4 w-4 mr-2" /> Download
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-medium truncate">{item.name || item.original_name}</p>
+                    <p className="text-xs text-muted-foreground">{item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {filteredMedia.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => {
+                      if (isSelectionMode) {
+                        toggleMediaSelection(item.id);
+                        return;
+                      }
+
+                      setSelectedMedia(item);
+                    }}
+                  >
+                    {isSelectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedMediaIds.includes(item.id)}
+                        onChange={() => toggleMediaSelection(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                      />
+                    )}
+                    <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                      {item.type === "image" ? (
+                        <MediaPreviewImage item={item} className="w-full h-full" />
+                      ) : (
+                        getIcon(item.type)
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.name || item.original_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}
+                        {item.created_at && ` • ${new Date(item.created_at).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    {!isSelectionMode && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="secondary" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -451,63 +688,56 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm font-medium truncate">{item.name || item.original_name}</p>
-                    <p className="text-xs text-muted-foreground">{item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {filteredMedia.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-4 p-4 hover:bg-muted/50 cursor-pointer"
-                    onClick={() => setSelectedMedia(item)}
-                  >
-                    <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden">
-                      {item.type === "image" ? (
-                        <img src={item.url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        getIcon(item.type)
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.name || item.original_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}
-                        {item.created_at && ` • ${new Date(item.created_at).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-popover text-popover-foreground">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCopyUrl(item.url); }}>
-                          <Copy className="h-4 w-4 mr-2" /> Copy URL
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownload(item.url, item.original_name || item.name); }}>
-                          <Download className="h-4 w-4 mr-2" /> Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    )}
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {lastPage > 1 && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Showing page {currentPage} of {lastPage} ({totalMedia} total files)
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage >= lastPage}
+                  >
+                    Next
+                  </Button>
+                  {pageNumbers.map((page, index) => {
+                    const previous = pageNumbers[index - 1];
+                    const showGap = previous && page - previous > 1;
+
+                    return (
+                      <div key={page} className="flex items-center gap-2">
+                        {showGap && <span className="text-muted-foreground text-sm">...</span>}
+                        <Button
+                          variant={page === currentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => goToPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
