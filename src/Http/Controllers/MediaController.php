@@ -24,7 +24,17 @@ class MediaController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'media' => MediaResource::collection($media),
+                'media' => MediaResource::collection($media->getCollection()),
+                'pagination' => [
+                    'current_page' => $media->currentPage(),
+                    'last_page' => $media->lastPage(),
+                    'per_page' => $media->perPage(),
+                    'total' => $media->total(),
+                    'from' => $media->firstItem(),
+                    'to' => $media->lastItem(),
+                    'next_page_url' => $media->nextPageUrl(),
+                    'prev_page_url' => $media->previousPageUrl(),
+                ],
             ]);
         }
 

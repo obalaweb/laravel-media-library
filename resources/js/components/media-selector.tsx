@@ -141,6 +141,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
         meta = response.data.media.meta || response.data.media;
       } else if (Array.isArray(response.data?.media)) {
         mediaData = response.data.media;
+        meta = response.data.pagination || null;
       } else if (Array.isArray(response.data?.data)) {
         mediaData = response.data.data;
         meta = response.data.meta;
@@ -410,6 +411,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
   }, []);
 
   const lastPage = pagination?.last_page || 1;
+  const hasMultiplePages = lastPage > 1 || Boolean(pagination?.next_page_url) || currentPage > 1;
   const pageNumbers = getVisiblePages(currentPage, lastPage);
 
   return (
@@ -610,7 +612,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
             </div>
 
             <div className="flex flex-col gap-4 pt-4 border-t">
-              {lastPage > 1 && (
+              {hasMultiplePages && (
                 <div className="flex items-center justify-center gap-1">
                   <Button
                     variant="outline"
