@@ -102,6 +102,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [filterType, setFilterType] = useState<"image" | "document" | "video" | "all">(mediaType);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -124,7 +125,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
     setLoading(true);
     axios.get('/builder/media', {
       params: {
-        type: mediaType === "all" ? undefined : mediaType,
+        type: filterType === "all" ? undefined : filterType,
         search: searchQuery || undefined,
         page: page
       },
@@ -160,7 +161,11 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
       setMedia([]);
       setLoading(false);
     });
-  }, [mediaType, searchQuery]);
+  }, [filterType, searchQuery]);
+
+  useEffect(() => {
+    setFilterType(mediaType);
+  }, [mediaType]);
 
   useEffect(() => {
     if (open) {
@@ -420,7 +425,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Select {mediaType === "all" ? "File" : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}</DialogTitle>
+            <DialogTitle>Select {filterType === "all" ? "File" : filterType.charAt(0).toUpperCase() + filterType.slice(1)}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 flex-1 overflow-hidden">
@@ -428,7 +433,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder={`Search ${mediaType === "all" ? "files" : mediaType + 's'}...`}
+                  placeholder={`Search ${filterType === "all" ? "files" : filterType + 's'}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchMedia(1)}
@@ -456,7 +461,20 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                   <Upload className="h-4 w-4 mr-2" />
                   {uploading ? "..." : "Upload"}
                 </Button>
-                <div className="flex border rounded-lg overflow-hidden">
+                <div className="flex border rounded-lg overflow-hidden shrink-0">
+                  {['all', 'image', 'document', 'video'].map((type) => (
+                    <Button
+                      key={type}
+                      variant={filterType === type ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setFilterType(type as any)}
+                      className="rounded-none border-y-0 border-l-0 last:border-r-0 shadow-none px-3 capitalize h-9"
+                    >
+                      {type}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex border rounded-lg overflow-hidden shrink-0">
                   <Button
                     variant={viewMode === "grid" ? "default" : "ghost"}
                     size="icon"
@@ -544,7 +562,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                                 Current
                               </div>
                             )}
-                            {mediaType === "all" && <MediaTypeCornerBadge type={item.type} />}
+                            <MediaTypeCornerBadge type={item.type} />
                           </div>
                           <div className="p-3">
                             <p className="text-sm font-medium truncate">{item.name || item.original_name}</p>
@@ -592,11 +610,9 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 min-w-0">
-                                {mediaType === "all" && (
                                   <span className="text-muted-foreground shrink-0" title={item.type}>
                                     <MediaTypeIcon type={item.type} className="h-4 w-4" />
                                   </span>
-                                )}
                                 <p className="font-medium truncate">{item.name || item.original_name}</p>
                                 {isCurrent && (
                                   <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
