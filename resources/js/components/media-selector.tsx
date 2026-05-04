@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Search, Grid, List, Image as ImageIcon, Check, Upload, FileText, Video, Film, FolderUp } from "lucide-react";
+import { Search, Grid, List, Image as ImageIcon, Check, Upload, FileText, Video, FolderUp } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
@@ -11,6 +11,7 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { useToast } from "../hooks/use-toast";
+import { MediaTypeCornerBadge, MediaTypeIcon } from "../lib/media-type";
 
 interface MediaItem {
   id: number;
@@ -543,6 +544,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                                 Current
                               </div>
                             )}
+                            {mediaType === "all" && <MediaTypeCornerBadge type={item.type} />}
                           </div>
                           <div className="p-3">
                             <p className="text-sm font-medium truncate">{item.name || item.original_name}</p>
@@ -589,7 +591,12 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {mediaType === "all" && (
+                                  <span className="text-muted-foreground shrink-0" title={item.type}>
+                                    <MediaTypeIcon type={item.type} className="h-4 w-4" />
+                                  </span>
+                                )}
                                 <p className="font-medium truncate">{item.name || item.original_name}</p>
                                 {isCurrent && (
                                   <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
@@ -720,7 +727,13 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                         <img src={file.thumbnail_link} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
-                          {file.mime_type.includes('video') ? <Film className="h-8 w-8" /> : <FileText className="h-8 w-8" />}
+                          {file.mime_type.startsWith("image/") ? (
+                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                          ) : file.mime_type.includes("video") ? (
+                            <Video className="h-8 w-8" />
+                          ) : (
+                            <FileText className="h-8 w-8" />
+                          )}
                         </div>
                       )}
                       <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1.5">

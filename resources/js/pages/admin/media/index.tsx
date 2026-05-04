@@ -1,5 +1,5 @@
 import { router, Head } from "@inertiajs/react";
-import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Film, FolderUp } from "lucide-react";
+import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Video, FolderUp } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ActionModal } from "../../../components/action-modal";
 import { Button } from "../../../components/ui/button";
@@ -20,6 +20,7 @@ import { Input } from "../../../components/ui/input";
 import { useActionModal } from "../../../hooks/use-action-modal";
 import { useToast } from "../../../hooks/use-toast";
 import AppLayout from "@/layouts/app-layout";
+import { MediaTypeCornerBadge, MediaTypeFilterIcon, MediaTypeIcon } from "../../../lib/media-type";
 
 interface MediaItem {
   id: number;
@@ -424,7 +425,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
     switch (type) {
       case "image": return <ImageIcon className="h-8 w-8 text-primary" />;
       case "document": return <FileText className="h-8 w-8 text-orange-500" />;
-      case "video": return <Film className="h-8 w-8 text-purple-500" />;
+      case "video": return <Video className="h-8 w-8 text-purple-500" />;
       default: return <FileText className="h-8 w-8 text-muted-foreground" />;
     }
   };
@@ -503,7 +504,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex border rounded-lg overflow-hidden">
-                  {(["all", "image", "document", "video"]).map((type) => (
+                  {(["all", "image", "document", "video"] as const).map((type) => (
                     <Button
                       key={type}
                       variant={filterType === type ? "default" : "ghost"}
@@ -518,8 +519,9 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                           preserveScroll: true,
                         });
                       }}
-                      className="rounded-none capitalize py-0"
+                      className="rounded-none capitalize py-0 gap-1.5"
                     >
+                      <MediaTypeFilterIcon filterKey={type} className="h-3.5 w-3.5" />
                       {type}
                     </Button>
                   ))}
@@ -592,6 +594,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                         {getIcon(item.type)}
                       </div>
                     )}
+                    {filterType === "all" && <MediaTypeCornerBadge type={item.type} />}
                     {!isSelectionMode && (
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <DropdownMenu>
@@ -660,7 +663,14 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{item.name || item.original_name}</p>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {filterType === "all" && (
+                          <span className="text-muted-foreground shrink-0" title={item.type}>
+                            <MediaTypeIcon type={item.type} className="h-4 w-4" />
+                          </span>
+                        )}
+                        <p className="font-medium truncate">{item.name || item.original_name}</p>
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}
                         {item.created_at && ` • ${new Date(item.created_at).toLocaleDateString()}`}
@@ -746,7 +756,14 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
         <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
           <DialogContent className="max-w-2xl bg-popover text-popover-foreground">
             <DialogHeader>
-              <DialogTitle>{selectedMedia?.name}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 pr-8">
+                {selectedMedia && (
+                  <span className="text-muted-foreground shrink-0">
+                    <MediaTypeIcon type={selectedMedia.type} className="h-5 w-5" />
+                  </span>
+                )}
+                <span className="truncate">{selectedMedia?.name}</span>
+              </DialogTitle>
             </DialogHeader>
             {selectedMedia && (
               <div className="space-y-4">
@@ -832,7 +849,13 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                           <img src={file.thumbnail_link} alt={file.name} className="h-10 w-10 object-cover rounded bg-muted flex-shrink-0" referrerPolicy="no-referrer" />
                         ) : (
                           <div className="h-10 w-10 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                            {file.mime_type.startsWith('image/') ? <ImageIcon className="h-5 w-5 text-muted-foreground" /> : <FileText className="h-5 w-5 text-muted-foreground" />}
+                            {file.mime_type.startsWith("image/") ? (
+                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                            ) : file.mime_type.startsWith("video/") ? (
+                              <Video className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <FileText className="h-5 w-5 text-muted-foreground" />
+                            )}
                           </div>
                         )}
                         <span className="flex-1 truncate font-medium">{file.name}</span>

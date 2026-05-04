@@ -1,8 +1,19 @@
 import axios from "axios";
-import { Upload, X, FileText, Pencil, FileDown } from "lucide-react";
+import { Upload, X, FileText, FileType, Table2, Pencil, FileDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import MediaSelector from "./media-selector";
+
+function documentIconForExtension(ext: string) {
+  const e = ext.toLowerCase().replace(/^\./, "");
+  if (e === "pdf") {
+    return FileType;
+  }
+  if (["xls", "xlsx", "csv", "ods"].includes(e)) {
+    return Table2;
+  }
+  return FileText;
+}
 
 interface DocumentUploadProps {
   value?: number | string | null;
@@ -63,6 +74,8 @@ const DocumentUpload = ({ value, onChange, label, mediaType = "document" }: Docu
     setDocExt("");
   };
 
+  const DocIcon = documentIconForExtension(docExt);
+
   const handleSelect = (mediaId: number, mediaUrl: string, originalName?: string) => {
     onChange(mediaId);
     if (mediaUrl) setDocUrl(mediaUrl);
@@ -80,7 +93,7 @@ const DocumentUpload = ({ value, onChange, label, mediaType = "document" }: Docu
           <div className="relative group">
             <div className="flex items-center p-4 w-full rounded-xl border-2 border-border bg-card shadow-sm hover:border-primary/50 transition-all duration-300">
               <div className="flex items-center justify-center p-3 rounded-lg bg-primary/10 text-primary mr-4">
-                <FileText className="h-8 w-8" />
+                <DocIcon className="h-8 w-8" />
               </div>
               <div className="flex-1 min-w-0 pr-16 text-left">
                 <p className="text-sm font-semibold truncate text-foreground pb-0.5">{docName}</p>
