@@ -29,7 +29,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $large_url
  * @property string|null $webp_path
  * @property string|null $webp_url
+ * @property int|null $width
+ * @property int|null $height
  * @property-read string $formatted_size
+ * @property-read string|null $dimensions
  */
 class Media extends Model
 {
@@ -48,6 +51,8 @@ class Media extends Model
         'path',
         'url',
         'size',
+        'width',
+        'height',
         'uploaded_by',
         'thumbnail_path',
         'thumbnail_url',
@@ -63,6 +68,8 @@ class Media extends Model
     {
         return [
             'size' => 'integer',
+            'width' => 'integer',
+            'height' => 'integer',
             'imported_at' => 'datetime',
         ];
     }
@@ -92,6 +99,15 @@ class Media extends Model
         }
 
         return round($bytes, 2).' '.$units[$i];
+    }
+
+    public function getDimensionsAttribute(): ?string
+    {
+        if ($this->width && $this->height) {
+            return "{$this->width}x{$this->height}";
+        }
+
+        return null;
     }
 
     public function getOptimizedUrl(string $size = 'medium'): ?string

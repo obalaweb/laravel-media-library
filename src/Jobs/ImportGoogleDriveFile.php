@@ -66,12 +66,23 @@ class ImportGoogleDriveFile implements ShouldQueue
             fclose($stream);
 
             try {
+                $type = Media::getTypeFromMime($this->mimeType);
+                $width = $height = null;
+
+                if ($type === 'image') {
+                    $dimensions = @getimagesize($tmpPath);
+                    if ($dimensions) {
+                        $width = $dimensions[0];
+                        $height = $dimensions[1];
+                    }
+                }
+
                 Media::query()->create([
                     'name' => pathinfo($this->fileName, PATHINFO_FILENAME),
                     'original_name' => $this->fileName,
                     'file_name' => basename($path),
                     'mime_type' => $this->mimeType,
-                    'type' => Media::getTypeFromMime($this->mimeType),
+                    'type' => $type,
                     'source' => 'google_drive',
                     'source_id' => $this->fileId,
                     'import_batch_id' => $batch->id,
@@ -79,6 +90,8 @@ class ImportGoogleDriveFile implements ShouldQueue
                     'path' => $path,
                     'url' => Storage::disk($disk)->url($path),
                     'size' => $downloadMeta['size'] ?? (int) Storage::disk($disk)->size($path),
+                    'width' => $width,
+                    'height' => $height,
                     'uploaded_by' => null,
                 ]);
             } catch (QueryException $exception) {

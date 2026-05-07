@@ -78,15 +78,28 @@ class MediaController extends Controller
             $name = $request->name ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $path = $file->store('media', 'public');
 
+            $type = Media::getTypeFromMime($file->getMimeType());
+            $width = $height = null;
+
+            if ($type === 'image') {
+                $dimensions = @getimagesize($file->getRealPath());
+                if ($dimensions) {
+                    $width = $dimensions[0];
+                    $height = $dimensions[1];
+                }
+            }
+
             $mediaItems[] = Media::create([
                 'name' => $name,
                 'original_name' => $file->getClientOriginalName(),
                 'file_name' => basename($path),
                 'mime_type' => $file->getMimeType(),
-                'type' => Media::getTypeFromMime($file->getMimeType()),
+                'type' => $type,
                 'path' => $path,
                 'url' => Storage::url($path),
                 'size' => $file->getSize(),
+                'width' => $width,
+                'height' => $height,
                 'uploaded_by' => auth()->id(),
             ]);
         }
