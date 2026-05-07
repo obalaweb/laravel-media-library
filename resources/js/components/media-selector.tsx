@@ -26,13 +26,16 @@ interface MediaItem {
   medium_url?: string | null;
   large_url?: string | null;
   webp_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  dimensions?: string | null;
 }
 
 interface MediaSelectorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (id: number, url: string, original_name?: string) => void;
-  onSelectMultiple?: (items: Array<{ id: number; url: string; original_name?: string }>) => void;
+  onSelect: (id: number, url: string, original_name?: string, item?: MediaItem) => void;
+  onSelectMultiple?: (items: Array<{ id: number; url: string; original_name?: string; item: MediaItem }>) => void;
   currentValue?: number | string | Array<number | string> | null;
   mediaType?: "image" | "document" | "video" | "all";
   multiple?: boolean;
@@ -188,12 +191,12 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
 
       const selectedMediaItems = media
         .filter((item) => selectedItems.includes(item.id))
-        .map((item) => ({ id: item.id, url: item.url, original_name: item.original_name }));
+        .map((item) => ({ id: item.id, url: item.url, original_name: item.original_name, item }));
 
       if (onSelectMultiple) {
         onSelectMultiple(selectedMediaItems);
       } else if (selectedMediaItems.length > 0) {
-        onSelect(selectedMediaItems[0].id, selectedMediaItems[0].url, selectedMediaItems[0].original_name);
+        onSelect(selectedMediaItems[0].id, selectedMediaItems[0].url, selectedMediaItems[0].original_name, selectedMediaItems[0].item);
       }
 
       onOpenChange(false);
@@ -206,7 +209,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
     if (selectedItem) {
       const item = media.find((itm) => itm.id === selectedItem);
       if (item) {
-        onSelect(item.id, item.url, item.original_name);
+        onSelect(item.id, item.url, item.original_name, item);
         onOpenChange(false);
         setSelectedItem(null);
         setSearchQuery("");
@@ -622,6 +625,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                               </div>
                               <p className="text-sm text-muted-foreground">
                                 {item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}
+                                {item.dimensions && ` • ${item.dimensions}`}
                                 {item.created_at && ` • ${new Date(item.created_at).toLocaleDateString()}`}
                               </p>
                             </div>

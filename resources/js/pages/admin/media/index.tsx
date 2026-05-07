@@ -35,6 +35,9 @@ interface MediaItem {
   medium_url?: string | null;
   large_url?: string | null;
   webp_url?: string | null;
+  width?: number | null;
+  height?: number | null;
+  dimensions?: string | null;
 }
 
 interface MediaIndexProps {
@@ -673,6 +676,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {item.formatted_size || `${(item.size / 1024 / 1024).toFixed(2)} MB`}
+                        {item.dimensions && ` • ${item.dimensions}`}
                         {item.created_at && ` • ${new Date(item.created_at).toLocaleDateString()}`}
                       </p>
                     </div>
@@ -777,7 +781,10 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">File size</p>
-                    <p className="font-medium">{selectedMedia.formatted_size || `${(selectedMedia.size / 1024 / 1024).toFixed(2)} MB`}</p>
+                    <p className="font-medium">
+                      {selectedMedia.formatted_size || `${(selectedMedia.size / 1024 / 1024).toFixed(2)} MB`}
+                      {selectedMedia.dimensions && ` (${selectedMedia.dimensions})`}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Uploaded</p>
