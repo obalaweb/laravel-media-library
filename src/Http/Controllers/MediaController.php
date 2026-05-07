@@ -83,7 +83,7 @@ class MediaController extends Controller
                 'original_name' => $file->getClientOriginalName(),
                 'file_name' => basename($path),
                 'mime_type' => $file->getMimeType(),
-                'type' => $this->getFileType($file->getMimeType()),
+                'type' => Media::getTypeFromMime($file->getMimeType()),
                 'path' => $path,
                 'url' => Storage::url($path),
                 'size' => $file->getSize(),
@@ -163,22 +163,5 @@ class MediaController extends Controller
         }
     }
 
-    private function getFileType(string $mimeType): string
-    {
-        if (str_starts_with($mimeType, 'image/')) {
-            return 'image';
-        }
 
-        if (str_starts_with($mimeType, 'video/')) {
-            return 'video';
-        }
-
-        if (str_starts_with($mimeType, 'application/pdf') ||
-            str_starts_with($mimeType, 'application/msword') ||
-            str_starts_with($mimeType, 'application/vnd')) {
-            return 'document';
-        }
-
-        return 'document';
-    }
 }

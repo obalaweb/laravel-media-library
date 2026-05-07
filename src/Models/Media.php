@@ -123,4 +123,27 @@ class Media extends Model
             'webp' => $this->webp_url,
         ];
     }
+
+    public static function getTypeFromMime(string $mimeType): string
+    {
+        if (str_starts_with($mimeType, 'image/')) {
+            return 'image';
+        }
+
+        if (str_starts_with($mimeType, 'video/')) {
+            return 'video';
+        }
+
+        if (str_starts_with($mimeType, 'audio/')) {
+            return 'audio';
+        }
+
+        if (str_starts_with($mimeType, 'application/pdf') ||
+            str_starts_with($mimeType, 'application/msword') ||
+            str_starts_with($mimeType, 'application/vnd')) {
+            return 'document';
+        }
+
+        return 'document';
+    }
 }

@@ -71,7 +71,7 @@ class ImportGoogleDriveFile implements ShouldQueue
                     'original_name' => $this->fileName,
                     'file_name' => basename($path),
                     'mime_type' => $this->mimeType,
-                    'type' => str_starts_with($this->mimeType, 'image/') ? 'image' : 'document',
+                    'type' => Media::getTypeFromMime($this->mimeType),
                     'source' => 'google_drive',
                     'source_id' => $this->fileId,
                     'import_batch_id' => $batch->id,
