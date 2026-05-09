@@ -66,7 +66,7 @@ class ImportGoogleDriveFile implements ShouldQueue
             fclose($stream);
 
             try {
-                $type = Media::getTypeFromMime($this->mimeType);
+                $type = Media::getTypeFromMime($this->mimeType, $this->fileName);
                 $width = $height = null;
 
                 if ($type === 'image') {

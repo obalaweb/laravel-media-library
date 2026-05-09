@@ -159,7 +159,7 @@ class Media extends Model
         ];
     }
 
-    public static function getTypeFromMime(string $mimeType): string
+    public static function getTypeFromMime(string $mimeType, ?string $filename = null): string
     {
         if (str_starts_with($mimeType, 'image/')) {
             return 'image';
@@ -177,6 +177,26 @@ class Media extends Model
             str_starts_with($mimeType, 'application/msword') ||
             str_starts_with($mimeType, 'application/vnd')) {
             return 'document';
+        }
+
+        // Handle generic mime types by checking extension
+        if ($filename && ($mimeType === 'application/octet-stream' || $mimeType === 'binary/octet-stream' || empty($mimeType))) {
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+            $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'bmp'];
+            if (in_array($extension, $imageExtensions)) {
+                return 'image';
+            }
+
+            $videoExtensions = ['mp4', 'webm', 'ogg', 'mov', 'avi', 'wmv', 'flv', 'mkv', 'm4v', '3gp'];
+            if (in_array($extension, $videoExtensions)) {
+                return 'video';
+            }
+
+            $audioExtensions = ['mp3', 'wav', 'ogg', 'm4a', 'aac'];
+            if (in_array($extension, $audioExtensions)) {
+                return 'audio';
+            }
         }
 
         return 'document';
