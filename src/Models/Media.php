@@ -104,10 +104,29 @@ class Media extends Model
     public function getDimensionsAttribute(): ?string
     {
         if ($this->width && $this->height) {
-            return "{$this->width}x{$this->height}";
+            $aspectRatio = $this->aspect_ratio;
+            return $aspectRatio ? str_replace(':', 'x', $aspectRatio) : "{$this->width}x{$this->height}";
         }
 
         return null;
+    }
+
+    public function getAspectRatioAttribute(): ?string
+    {
+        if (!$this->width || !$this->height) {
+            return null;
+        }
+
+        $gcd = function ($a, $b) use (&$gcd) {
+            return $b ? $gcd($b, $a % $b) : $a;
+        };
+
+        $divisor = $gcd($this->width, $this->height);
+
+        $w = $this->width / $divisor;
+        $h = $this->height / $divisor;
+
+        return "{$w}:{$h}";
     }
 
     public function getOptimizedUrl(string $size = 'medium'): ?string
