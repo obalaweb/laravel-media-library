@@ -105,7 +105,8 @@ class GoogleDriveImportService
                 batchId: $batch->id,
                 fileId: Arr::get($file, 'id'),
                 fileName: Arr::get($file, 'name', 'google-drive-file'),
-                mimeType: Arr::get($file, 'mime_type', 'application/octet-stream')
+                mimeType: Arr::get($file, 'mime_type', 'application/octet-stream'),
+                thumbnailUrl: Arr::get($file, 'thumbnail_link')
             );
         }
 

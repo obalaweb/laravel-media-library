@@ -25,6 +25,7 @@ class ImportGoogleDriveFile implements ShouldQueue
         public readonly string $fileId,
         public readonly string $fileName,
         public readonly string $mimeType,
+        public readonly ?string $thumbnailUrl = null,
     ) {
     }
 
@@ -89,6 +90,7 @@ class ImportGoogleDriveFile implements ShouldQueue
                     'imported_at' => now(),
                     'path' => $path,
                     'url' => Storage::disk($disk)->url($path),
+                    'thumbnail_url' => $this->thumbnailUrl,
                     'size' => $downloadMeta['size'] ?? (int) Storage::disk($disk)->size($path),
                     'width' => $width,
                     'height' => $height,
