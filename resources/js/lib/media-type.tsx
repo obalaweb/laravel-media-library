@@ -1,4 +1,4 @@
-import { Files, FileText, Image as ImageIcon, Video, type LucideProps } from "lucide-react";
+import { Files, FileText, Image as ImageIcon, Video, Music, type LucideProps } from "lucide-react";
 import React from "react";
 import { cn } from "./utils";
 
@@ -6,6 +6,7 @@ const TYPE_LABELS: Record<string, string> = {
   image: "Image",
   document: "Document",
   video: "Video",
+  audio: "Audio",
 };
 
 export function mediaTypeLabel(type: string): string {
@@ -23,6 +24,8 @@ export function MediaTypeIcon({
       return <ImageIcon className={iconClass} aria-hidden {...props} />;
     case "video":
       return <Video className={iconClass} aria-hidden {...props} />;
+    case "audio":
+      return <Music className={iconClass} aria-hidden {...props} />;
     case "document":
       return <FileText className={iconClass} aria-hidden {...props} />;
     default:

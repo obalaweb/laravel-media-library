@@ -79,13 +79,41 @@ class MediaController extends Controller
             $path = $file->store('media', 'public');
 
             $type = Media::getTypeFromMime($file->getMimeType(), $file->getClientOriginalName());
-            $width = $height = null;
+            $width = null;
+            $height = null;
+            $thumbnailPath = null;
+            $thumbnailUrl = null;
 
             if ($type === 'image') {
                 $dimensions = @getimagesize($file->getRealPath());
                 if ($dimensions) {
                     $width = $dimensions[0];
                     $height = $dimensions[1];
+                }
+            } elseif ($type === 'video') {
+                try {
+                    $absVideoPath = Storage::disk('public')->path($path);
+                    $thumbFilename = pathinfo($path, PATHINFO_FILENAME).'_thumb.jpg';
+                    $thumbRelPath = 'media/'.$thumbFilename;
+                    $absThumbPath = Storage::disk('public')->path($thumbRelPath);
+
+                    $process = new \Symfony\Component\Process\Process([
+                        '/usr/bin/ffmpeg', '-y', '-i', $absVideoPath, '-ss', '00:00:00', '-vframes', '1', $absThumbPath
+                    ]);
+                    $process->setTimeout(60);
+                    $process->run();
+
+                    if ($process->isSuccessful() && file_exists($absThumbPath)) {
+                        $thumbnailPath = $thumbRelPath;
+                        $thumbnailUrl = Storage::disk('public')->url($thumbRelPath);
+                        $dimensions = @getimagesize($absThumbPath);
+                        if ($dimensions) {
+                            $width = $dimensions[0];
+                            $height = $dimensions[1];
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error("Video thumbnail generation failed: ".$e->getMessage());
                 }
             }
 
@@ -101,6 +129,8 @@ class MediaController extends Controller
                 'width' => $width,
                 'height' => $height,
                 'uploaded_by' => auth()->id(),
+                'thumbnail_path' => $thumbnailPath,
+                'thumbnail_url' => $thumbnailUrl,
             ]);
         }
 
@@ -113,7 +143,7 @@ class MediaController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.media.index')
+        return redirect()->route('media-library.media.index')
             ->with('success', count($mediaItems) > 1 ? 'Media files uploaded successfully.' : 'Media uploaded successfully.');
     }
 
@@ -130,7 +160,7 @@ class MediaController extends Controller
 
         $medium->update($validated);
 
-        return redirect()->route('admin.media.index')
+        return redirect()->route('media-library.media.index')
             ->with('success', 'Media updated successfully.');
     }
 
@@ -139,7 +169,7 @@ class MediaController extends Controller
         $this->deleteFiles($medium);
         $medium->delete();
 
-        return redirect()->route('admin.media.index')
+        return redirect()->route('media-library.media.index')
             ->with('success', 'Media deleted successfully.');
     }
 
@@ -161,7 +191,7 @@ class MediaController extends Controller
             }
         });
 
-        return redirect()->route('admin.media.index')
+        return redirect()->route('media-library.media.index')
             ->with('success', 'Selected media deleted successfully.');
     }
 

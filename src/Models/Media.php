@@ -131,6 +131,10 @@ class Media extends Model
 
     public function getOptimizedUrl(string $size = 'medium'): ?string
     {
+        if ($this->type === 'video' && $size === 'thumbnail') {
+            return $this->thumbnail_url ?? $this->url;
+        }
+
         if ($this->type !== 'image') {
             return $this->url;
         }

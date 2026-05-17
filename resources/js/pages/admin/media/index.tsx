@@ -1,7 +1,8 @@
 import { router, Head } from "@inertiajs/react";
-import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Video, FolderUp } from "lucide-react";
+import { Upload, Search, Grid, List, MoreVertical, Trash2, Download, Copy, Image as ImageIcon, FileText, Video, FolderUp, Music } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { ActionModal } from "../../../components/action-modal";
+import { UploadModal } from "../../../components/upload-modal";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import {
@@ -77,8 +78,9 @@ const breadcrumbs = [
 
 function MediaPreviewImage({ item, className }: { item: MediaItem; className: string }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const isVideo = item.type === "video";
   const lowQualitySrc = item.thumbnail_url || item.url;
-  const optimizedSrc = item.medium_url || item.webp_url || item.url;
+  const optimizedSrc = isVideo ? item.thumbnail_url || item.url : (item.medium_url || item.webp_url || item.url);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -127,6 +129,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedMediaIds, setSelectedMediaIds] = useState<number[]>([]);
   const [filterType, setFilterType] = useState(filters?.type || "all");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState("");
   const [drivePreview, setDrivePreview] = useState<DrivePreviewResponse | null>(null);
@@ -145,7 +148,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
   const allVisibleSelected = filteredMedia.length > 0 && filteredMedia.every((item) => selectedMediaIds.includes(item.id));
 
   const handleUpload = () => {
-    fileInputRef.current?.click();
+    setIsUploadModalOpen(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,6 +432,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
       case "image": return <ImageIcon className="h-8 w-8 text-primary" />;
       case "document": return <FileText className="h-8 w-8 text-orange-500" />;
       case "video": return <Video className="h-8 w-8 text-purple-500" />;
+      case "audio": return <Music className="h-8 w-8 text-blue-500" />;
       default: return <FileText className="h-8 w-8 text-muted-foreground" />;
     }
   };
@@ -483,7 +487,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
               className="hidden"
               onChange={handleFileChange}
               multiple
-              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
             />
             <Button onClick={handleUpload}>
               <Upload className="h-4 w-4 mr-2" />
@@ -507,7 +511,7 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex border rounded-lg overflow-hidden">
-                  {(["all", "image", "document", "video"] as const).map((type) => (
+                  {(["all", "image", "document", "video", "audio"] as const).map((type) => (
                     <Button
                       key={type}
                       variant={filterType === type ? "default" : "ghost"}
@@ -590,8 +594,17 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                         />
                       </div>
                     )}
-                    {item.type === "image" ? (
-                      <MediaPreviewImage item={item} className="w-full h-full" />
+                    {item.type === "image" || (item.type === "video" && item.thumbnail_url) ? (
+                      <div className="w-full h-full relative group/thumb">
+                        <MediaPreviewImage item={item} className="w-full h-full object-cover" />
+                        {item.type === "video" && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover/thumb:bg-black/50 transition-colors">
+                            <div className="h-10 w-10 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-sm border border-white/30">
+                              <Video className="h-5 w-5" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         {getIcon(item.type)}
@@ -658,9 +671,16 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                         className="rounded border-input text-primary focus:ring-primary h-4 w-4"
                       />
                     )}
-                    <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden">
-                      {item.type === "image" ? (
-                        <MediaPreviewImage item={item} className="w-full h-full" />
+                    <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden relative shrink-0">
+                      {item.type === "image" || (item.type === "video" && item.thumbnail_url) ? (
+                        <>
+                          <MediaPreviewImage item={item} className="w-full h-full object-cover" />
+                          {item.type === "video" && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                              <Video className="h-5 w-5 text-white" />
+                            </div>
+                          )}
+                        </>
                       ) : (
                         getIcon(item.type)
                       )}
@@ -771,8 +791,23 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             </DialogHeader>
             {selectedMedia && (
               <div className="space-y-4">
-                {selectedMedia.type === "image" ? (
+                {selectedMedia.type === "video" ? (
+                  <div className="relative rounded-lg overflow-hidden bg-black aspect-video flex items-center justify-center">
+                    <video
+                      controls
+                      src={selectedMedia.url}
+                      poster={selectedMedia.thumbnail_url || undefined}
+                      className="w-full h-full max-h-[60vh] object-contain"
+                      preload="metadata"
+                    />
+                  </div>
+                ) : selectedMedia.type === "image" ? (
                   <img src={selectedMedia.url} alt={selectedMedia.name} className="w-full max-h-[60vh] object-contain rounded-lg" loading="lazy" />
+                ) : selectedMedia.type === "audio" ? (
+                  <div className="p-8 bg-muted rounded-lg flex flex-col items-center justify-center space-y-4">
+                    <Music className="h-16 w-16 text-blue-500 animate-pulse" />
+                    <audio controls src={selectedMedia.url} className="w-full max-w-md" />
+                  </div>
                 ) : (
                   <div className="h-48 bg-muted rounded-lg flex items-center justify-center">
                     {getIcon(selectedMedia.type)}
@@ -860,6 +895,8 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
                               <ImageIcon className="h-5 w-5 text-muted-foreground" />
                             ) : file.mime_type.startsWith("video/") ? (
                               <Video className="h-5 w-5 text-muted-foreground" />
+                            ) : file.mime_type.startsWith("audio/") ? (
+                              <Music className="h-5 w-5 text-muted-foreground" />
                             ) : (
                               <FileText className="h-5 w-5 text-muted-foreground" />
                             )}
@@ -894,6 +931,14 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <UploadModal
+          open={isUploadModalOpen}
+          onOpenChange={setIsUploadModalOpen}
+          onSuccess={() => {
+            router.reload({ only: ["media"] });
+          }}
+        />
       </div>
     </AppLayout>
   );

@@ -1,7 +1,8 @@
 import axios from "axios";
-import { Search, Grid, List, Image as ImageIcon, Check, Upload, FileText, Video, FolderUp } from "lucide-react";
+import { Search, Grid, List, Image as ImageIcon, Check, Upload, FileText, Video, FolderUp, Music } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "./ui/button";
+import { UploadModal } from "./upload-modal";
 import { Card, CardContent } from "./ui/card";
 import {
   Dialog,
@@ -37,7 +38,7 @@ interface MediaSelectorProps {
   onSelect: (id: number, url: string, original_name?: string, item?: MediaItem) => void;
   onSelectMultiple?: (items: Array<{ id: number; url: string; original_name?: string; item: MediaItem }>) => void;
   currentValue?: number | string | Array<number | string> | null;
-  mediaType?: "image" | "document" | "video" | "all";
+  mediaType?: "image" | "document" | "video" | "audio" | "all";
   multiple?: boolean;
 }
 
@@ -59,8 +60,9 @@ interface DrivePreviewResponse {
 
 function MediaPreviewImage({ item, className }: { item: MediaItem; className: string }) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const isVideo = item.type === "video";
   const lowQualitySrc = item.thumbnail_url || item.url;
-  const optimizedSrc = item.medium_url || item.webp_url || item.url;
+  const optimizedSrc = isVideo ? item.thumbnail_url || item.url : (item.medium_url || item.webp_url || item.url);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -105,12 +107,13 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
-  const [filterType, setFilterType] = useState<"image" | "document" | "video" | "all">(mediaType);
+  const [filterType, setFilterType] = useState<"image" | "document" | "video" | "audio" | "all">(mediaType);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [pagination, setPagination] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [driveUrl, setDriveUrl] = useState("");
@@ -229,7 +232,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
   };
 
   const handleUpload = () => {
-    fileInputRef.current?.click();
+    setIsUploadModalOpen(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,6 +247,8 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
         isValid = !file.type.startsWith('image/') && !file.type.startsWith('video/');
       } else if (mediaType === "video") {
         isValid = file.type.startsWith('video/');
+      } else if (mediaType === "audio") {
+        isValid = file.type.startsWith('audio/');
       }
 
       if (!isValid) {
@@ -450,7 +455,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                   className="hidden"
                   onChange={handleFileChange}
                   multiple
-                  accept={mediaType === "image" ? "image/*" : mediaType === "video" ? "video/*" : mediaType === "document" ? ".pdf,.doc,.docx,.xls,.xlsx,.txt" : "*"}
+                  accept={mediaType === "image" ? "image/*" : mediaType === "video" ? "video/*" : mediaType === "audio" ? "audio/*" : mediaType === "document" ? ".pdf,.doc,.docx,.xls,.xlsx,.txt" : "*"}
                 />
                 <Button variant="outline" onClick={() => setIsDriveModalOpen(true)}>
                   <FolderUp className="h-4 w-4 mr-2" />
@@ -465,7 +470,7 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                   {uploading ? "..." : "Upload"}
                 </Button>
                 <div className="flex border rounded-lg overflow-hidden shrink-0">
-                  {['all', 'image', 'document', 'video'].map((type) => (
+                  {['all', 'image', 'document', 'video', 'audio'].map((type) => (
                     <Button
                       key={type}
                       variant={filterType === type ? 'default' : 'ghost'}
@@ -540,12 +545,26 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                       >
                         <CardContent className="p-0">
                           <div className="aspect-square relative bg-muted rounded-t-lg overflow-hidden">
-                            {item.type === 'image' ? (
-                              <MediaPreviewImage item={item} className="w-full h-full" />
+                            {item.type === 'image' || (item.type === 'video' && item.thumbnail_url) ? (
+                              <div className="w-full h-full relative group/thumb">
+                                <MediaPreviewImage item={item} className="w-full h-full object-cover" />
+                                {item.type === "video" && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover/thumb:bg-black/50 transition-colors">
+                                    <div className="h-10 w-10 rounded-full bg-black/60 text-white flex items-center justify-center backdrop-blur-sm border border-white/30">
+                                      <Video className="h-5 w-5" />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             ) : item.type === 'video' ? (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
                                 <Video className="h-12 w-12 mb-2" />
                                 <span className="text-xs uppercase font-medium">Video</span>
+                              </div>
+                            ) : item.type === 'audio' ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground">
+                                <Music className="h-12 w-12 mb-2 text-blue-500" />
+                                <span className="text-xs uppercase font-medium">Audio</span>
                               </div>
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center bg-muted text-muted-foreground overflow-hidden">
@@ -594,11 +613,22 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
                             <div className="relative h-16 w-16 rounded bg-muted overflow-hidden flex-shrink-0">
-                              {item.type === 'image' ? (
-                                <MediaPreviewImage item={item} className="w-full h-full" />
+                              {item.type === 'image' || (item.type === 'video' && item.thumbnail_url) ? (
+                                <>
+                                  <MediaPreviewImage item={item} className="w-full h-full object-cover" />
+                                  {item.type === "video" && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                      <Video className="h-5 w-5 text-white" />
+                                    </div>
+                                  )}
+                                </>
                               ) : item.type === 'video' ? (
                                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
                                   <Video className="h-8 w-8" />
+                                </div>
+                              ) : item.type === 'audio' ? (
+                                <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
+                                  <Music className="h-8 w-8 text-blue-500" />
                                 </div>
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
@@ -751,6 +781,8 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
                             <ImageIcon className="h-8 w-8 text-muted-foreground" />
                           ) : file.mime_type.includes("video") ? (
                             <Video className="h-8 w-8" />
+                          ) : file.mime_type.includes("audio") ? (
+                            <Music className="h-8 w-8 text-blue-500" />
                           ) : (
                             <FileText className="h-8 w-8" />
                           )}
@@ -802,6 +834,14 @@ const MediaSelector = ({ open, onOpenChange, onSelect, onSelectMultiple, current
           </div>
         </DialogContent>
       </Dialog>
+
+      <UploadModal
+        open={isUploadModalOpen}
+        onOpenChange={setIsUploadModalOpen}
+        onSuccess={() => {
+          fetchMedia(1);
+        }}
+      />
     </>
   );
 };
