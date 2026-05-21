@@ -167,7 +167,8 @@ export function UploadModal({ open, onOpenChange, onSuccess }: UploadModalProps)
               <CloudRain className={`h-8 w-8 ${isDragOver ? "text-primary animate-bounce" : "text-muted-foreground"}`} />
             </div>
             <p className="text-lg font-semibold mb-1 text-foreground">Drag & drop files here</p>
-            <p className="text-sm text-muted-foreground mb-4">or click to browse your desktop</p>
+            <p className="text-sm text-muted-foreground mb-1">or click to browse your desktop</p>
+            <p className="text-xs text-muted-foreground/80 mb-4">Note: Video files are limited to 50MB max</p>
             <Button type="button" variant="outline" size="sm" disabled={isUploading}>
               <Upload className="h-4 w-4 mr-2" /> Select Files
             </Button>
