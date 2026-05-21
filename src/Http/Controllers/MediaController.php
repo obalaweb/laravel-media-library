@@ -20,7 +20,8 @@ class MediaController extends Controller
             ->when($request->type, fn ($q) => $q->where('type', $request->type))
             ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%"))
             ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 40);
+            ->paginate($request->per_page ?? 40)
+            ->withQueryString();
 
         if ($request->wantsJson()) {
             return response()->json([

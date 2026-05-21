@@ -20,6 +20,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { useActionModal } from "../../../hooks/use-action-modal";
 import { useToast } from "../../../hooks/use-toast";
+import { AppPagination } from '@/components/app-pagination';
 import AppLayout from "@/layouts/app-layout";
 import { MediaTypeCornerBadge, MediaTypeFilterIcon, MediaTypeIcon } from "../../../lib/media-type";
 
@@ -730,51 +731,10 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
           </Card>
         )}
 
-        {lastPage > 1 && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Showing page {currentPage} of {lastPage} ({totalMedia} total files)
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage <= 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage >= lastPage}
-                  >
-                    Next
-                  </Button>
-                  {pageNumbers.map((page, index) => {
-                    const previous = pageNumbers[index - 1];
-                    const showGap = previous && page - previous > 1;
-
-                    return (
-                      <div key={page} className="flex items-center gap-2">
-                        {showGap && <span className="text-muted-foreground text-sm">...</span>}
-                        <Button
-                          variant={page === currentPage ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => goToPage(page)}
-                        >
-                          {page}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {media.meta?.links && media.meta.links.length > 0 && (
+          <div className="mt-6 flex justify-center">
+            <AppPagination links={media.meta.links} />
+          </div>
         )}
 
         <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
