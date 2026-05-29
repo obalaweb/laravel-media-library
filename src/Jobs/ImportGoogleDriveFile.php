@@ -101,6 +101,8 @@ class ImportGoogleDriveFile implements ShouldQueue
 
                 if ($existing && $existing->trashed()) {
                     $existing->restore();
+                    $attributes['created_at'] = now();
+                    $attributes['updated_at'] = now();
                     $existing->update($attributes);
                 } else {
                     Media::query()->create($attributes);

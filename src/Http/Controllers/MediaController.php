@@ -18,7 +18,10 @@ class MediaController extends Controller
     {
         $media = Media::query()
             ->when($request->type, fn ($q) => $q->where('type', $request->type))
-            ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%"))
+            ->when($request->search, fn ($q) => $q->where(function ($query) use ($request) {
+                $query->where('name', 'like', "%{$request->search}%")
+                      ->orWhere('original_name', 'like', "%{$request->search}%");
+            }))
             ->orderBy('created_at', 'desc')
             ->paginate($request->per_page ?? 40)
             ->withQueryString();
