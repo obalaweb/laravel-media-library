@@ -24,7 +24,7 @@ class GoogleDriveLinkParser
             return ['type' => 'file', 'id' => $matches[1]];
         }
 
-        if (preg_match('#/drive/folders/([a-zA-Z0-9_-]+)#', $path, $matches) === 1) {
+        if (preg_match('#/drive/(?:u/[0-9]+/)?folders/([a-zA-Z0-9_-]+)#', $path, $matches) === 1) {
             return ['type' => 'folder', 'id' => $matches[1]];
         }
 
