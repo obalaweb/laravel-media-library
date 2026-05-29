@@ -41,7 +41,9 @@ class ImportGoogleDriveFile implements ShouldQueue
         $this->syncPendingCount($batch);
         $batch->update(['status' => 'processing']);
 
-        if (Media::query()->where('source', 'google_drive')->where('source_id', $this->fileId)->exists()) {
+        $existing = Media::query()->withTrashed()->where('source', 'google_drive')->where('source_id', $this->fileId)->first();
+
+        if ($existing && !$existing->trashed()) {
             $batch->increment('skipped_count');
             $this->finalizeBatchStatus($batch);
 
@@ -78,7 +80,7 @@ class ImportGoogleDriveFile implements ShouldQueue
                     }
                 }
 
-                Media::query()->create([
+                $attributes = [
                     'name' => pathinfo($this->fileName, PATHINFO_FILENAME),
                     'original_name' => $this->fileName,
                     'file_name' => basename($path),
@@ -95,7 +97,14 @@ class ImportGoogleDriveFile implements ShouldQueue
                     'width' => $width,
                     'height' => $height,
                     'uploaded_by' => null,
-                ]);
+                ];
+
+                if ($existing && $existing->trashed()) {
+                    $existing->restore();
+                    $existing->update($attributes);
+                } else {
+                    Media::query()->create($attributes);
+                }
             } catch (QueryException $exception) {
                 if ($this->isDuplicateSourceConstraintViolation($exception)) {
                     $batch->increment('skipped_count');
