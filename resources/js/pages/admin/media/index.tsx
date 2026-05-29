@@ -414,6 +414,19 @@ export default function MediaIndex({ media, filters }: MediaIndexProps) {
             clearInterval(pollRef.current);
             pollRef.current = null;
           }
+
+          if (statusPayload.batch?.skipped_count > 0) {
+            toast({
+              title: "Import Completed",
+              description: `Imported: ${statusPayload.batch.imported_count}, Skipped (already exist): ${statusPayload.batch.skipped_count}`,
+            });
+          } else if (statusPayload.batch?.imported_count > 0) {
+            toast({
+              title: "Import Completed",
+              description: `Successfully imported ${statusPayload.batch.imported_count} files.`,
+            });
+          }
+
           router.reload({ only: ["media"] });
         }
       }, 2500);
